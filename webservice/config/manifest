@@ -1,0 +1,7 @@
+Manifest-Version: 1.0
+Class-Path: libs/commons-dbutils-1.6.jar libs/mysql-connector-java-5.1.22-bin.jar 
+libs/gson-2.2.2.jar libs/javolution-5.5.1.jar libs/logback-classic-1.1.1.3.jar 
+libs/logback-core-1.1.1.jar libs/NIOCore.jar libs/slf4j-api-1.6.1.jar 
+libs/slf4j-log4j12-1.6.1.jar libs/Spark.jar libs/tomcat-jdbc.jar libs/tomcat-juli.jar
+Main-Class: cn.talk.main.MainServer
+

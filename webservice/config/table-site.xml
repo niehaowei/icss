@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<table-site>
+	<!-- ======================AXP前置系统表======================= -->
+
+	<table>
+		<name>OFFI_UNITINFO</name>
+		<value>ESB:OFFI_UNITINFO</value>
+		<rowkey></rowkey>
+		<describe>公务卡单位信息表</describe>
+	</table>
+	
+	
+</table-site>

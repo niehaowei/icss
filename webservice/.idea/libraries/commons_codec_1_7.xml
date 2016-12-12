@@ -1,0 +1,45 @@
+<component name="libraryTable">
+  <library name="commons-codec-1.7">
+    <CLASSES>
+      <root url="jar://$PROJECT_DIR$/lib2/commons-codec-1.7.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/commons-collections-3.2.1.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/commons-configuration-1.6.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/commons-io-2.4.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/commons-lang-2.6.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/commons-logging-1.1.1.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/elasticsearch-client-2.0.0-transwarp-tdh463.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/findbugs-annotations-1.3.9-1.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/guava-14.0.1.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/hadoop-annotations-2.5.2-transwarp-tdh463.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/hadoop-auth-2.5.2-transwarp-tdh463.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/hadoop-common-2.5.2-transwarp-tdh463.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/hadoop-common-2.5.2-transwarp-tdh463-tests.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/hadoop-mapreduce-client-core-2.5.2-transwarp-tdh463.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/hbase-bson-0.98.6-transwarp-tdh463.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/hbase-client-0.98.6-transwarp-tdh463.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/hbase-client-1.1.5.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/hbase-common-0.98.6-transwarp-tdh463.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/hbase-common-0.98.6-transwarp-tdh463-tests.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/hbase-hyperbase-0.98.6-transwarp-tdh463.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/hbase-protocol-0.98.6-transwarp-tdh463.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/htrace-core-2.04.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/inceptor-driver.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/jackson-mapper-asl-1.8.8.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/jsch-0.1.50.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/jzlib-1.1.2.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/log4j-1.2.17.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/metrics-core-2.2.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/netty-3.6.2.Final.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/protobuf-java-2.5.0.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/slf4j-api-1.6.4.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/slf4j-log4j12-1.6.4.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/zookeeper.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/zookeeper-3.4.5-transwarp.jar!/" />
+    </CLASSES>
+    <JAVADOC />
+    <SOURCES>
+      <root url="jar://$PROJECT_DIR$/lib2/zookeeper.jar!/" />
+      <root url="jar://$PROJECT_DIR$/lib2/zookeeper-3.4.5-transwarp.jar!/" />
+    </SOURCES>
+  </library>
+</component>
