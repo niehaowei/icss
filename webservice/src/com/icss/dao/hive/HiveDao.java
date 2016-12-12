@@ -54,6 +54,7 @@ public class HiveDao {
         String   sql = "load data local inpath '" + filepath + "' into table "
                 + tableName;
         Connection conn = null;
+
         conn = HiveUtil.getConnectionByC3P0Pool();
         Statement statement = null;
         try {
