@@ -1,23 +1,28 @@
 package com.icss.test;
 
+import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.icss.action.ActionExecutorImpl;
+import com.icss.dao.hbase.HBaseDao;
+import com.icss.dao.hbase.ScanBean;
 import com.icss.dao.hive.HiveDao;
 import com.icss.dao.hive.HiveUtil;
 import com.icss.ws.bean.InfoBean;
 import junit.framework.TestCase;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashMap;
 
 /**
  * Created by Administrator on 2016/12/12.
  */
 public class TestAction extends TestCase {
     @Test
-    public void testActionExecutorImplMethodQueryByRowKey() throws Exception {
+    public void testActionExecutorImplQueryByRowKey() throws Exception {
 
         System.out.println("" + "sssss");
         ActionExecutorImpl actionExecutorImpl = new ActionExecutorImpl();
@@ -42,6 +47,32 @@ public class TestAction extends TestCase {
         String result = HiveDao.loadData("test_demo1");
 
         System.out.println(result);
+    }
+
+    @Test
+   public void testJsonTOMap(){
+        Gson gson = new Gson();
+        JsonObject jsonObject = new JsonObject();
+        jsonObject.addProperty("ss","sd");
+        jsonObject.addProperty("sa","sa");
+        HashMap<Object, Object> objectObjectHashMap = new HashMap<Object, Object>();
+        objectObjectHashMap=gson.fromJson(jsonObject,HashMap.class);
+        System.out.println(objectObjectHashMap.get("ss"));
+
+    }
+
+    @Test
+    public  void  testHbaseDaoScanData(){
+        JsonObject jsonObject = new JsonObject();
+        try {
+            jsonObject.addProperty("tablename","test_demo0");
+            jsonObject.addProperty("cf","ps");
+            ScanBean scanBean = new ScanBean();
+            scanBean.setRecordNum("2");
+            com.icss.dao.hbase.HBaseDao.getInstance().scanData(scanBean,jsonObject, "");
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
 }
