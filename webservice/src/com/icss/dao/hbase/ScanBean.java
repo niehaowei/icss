@@ -10,19 +10,33 @@ import java.util.Map;
 public class ScanBean {
 	
 	public List<Map<String, String>> results = new ArrayList<Map<String, String>>();
-	
+	/**
+	 * 每页的行数
+	 */
 	public String recordNum;
+	/**
+	 * 开始rowkey
+	 */
 	
 	public String startRowKey;
-	
+
+	/**
+	 * 结束rowkey，也是分页查询的下一页起始rowkey
+	 */
 	public String stopRowKey;
 	
 	public String output;
 	
 	public String fileName;
-	
+
+	/**
+	 * 查询返回的提示信息
+	 */
 	public String retMsg;
-	
+
+	/**
+	 * 查询返回的提示码
+	 */
 	public String retCode;
 	
 	public String getRetCode() {

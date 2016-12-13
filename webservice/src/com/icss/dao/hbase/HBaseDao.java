@@ -418,34 +418,33 @@ public class HBaseDao implements IHBaseDao {
 
 
     /**
-     * 在指定rowkey 之间，过滤出符合指定列族、列分隔符、列值，返回[列分隔符、列值]
+     * 根据起始rowkey和查询条件，在Hbase表中进行分页查询
      *
-     * @param bean
-     * @param param      必须包含的 StartRow,StopRow,tablename,cf
+     * @param
+     * @param param      必须包含的
      * @param propFileNm
      * @return
-     * @throws IOException
+     * @throws IOException 返回值{"results":[{"age":"28"},{"age":"29"}],"recordNum":"1","startRowKey":"111112","stopRowKey":"111116","retMsg":"success"}
      */
-    public ScanBean scanData(ScanBean bean, JsonObject param, String propFileNm) throws IOException {
+    public String scanData(String strbean, JsonObject param, String propFileNm) throws IOException {
 
-
-        ScanBean scanBean = new ScanBean();
+        ScanBean bean = new ScanBean();
         Gson gson = new Gson();
+        bean = gson.fromJson(strbean, ScanBean.class);
+        String tablename = jsonToString(param.get("tablename"));
+        String cf = jsonToString(param.get("cf"));
+        ScanBean scanBean = new ScanBean();
         Map<String, String> params = new HashMap<String, String>();
         params.put("age", "28");
-        params.put("age", "niehw");
+        params.put("name", "niehw");
         HTablePool pool = new HTablePool(config, 1000);
-        String tableName = jsonToString(param.get("tablename"));
-        String family = jsonToString(param.get("cf"));
-        System.out.println("tableName:family"+tableName+":"+family);
-        if (StringUtils.isEmpty(tableName) || StringUtils.isEmpty(family)) {
+        if (StringUtils.isEmpty(tablename) || StringUtils.isEmpty(cf)) {
             scanBean.setRetMsg("table or cf is null ");
-            return scanBean;
+            return gson.toJson(scanBean);
         }
-        Properties props = FileUtil.readConfigFile(tableName + ".properties");
-
+        Properties props = FileUtil.readConfigFile(tablename + ".properties");
         String[] qualifiers = props.getProperty("qualifiers").split(",");
-        HTableInterface table = pool.getTable(tableName);
+        HTableInterface table = pool.getTable(tablename);
 
         FilterList filters = new FilterList();
         Scan scan = new Scan();
@@ -453,27 +452,22 @@ public class HBaseDao implements IHBaseDao {
          * 添加待查询列
          */
         for (String qualifier : qualifiers) {
-            scan.addColumn(Bytes.toBytes(family), Bytes.toBytes(qualifier));
+            scan.addColumn(Bytes.toBytes(cf), Bytes.toBytes(qualifier));
         }
 
         /**
          * 添加条件过滤器
          */
-        addColumnFilter(params, props, filters, family);
+        addColumnFilter(params, props, filters, cf);
         /**
          * 将上一次查询的结束rowkey作为本次查询的起始rowkey
-         * 本过滤器对于rowkey是前闭后开
+         * 本过滤器对于rowkey范围是前闭后开
          */
-        if(bean.stopRowKey != null && !("".equals(bean.stopRowKey))){
-            Log.debug("startRowKey=" + bean.stopRowKey);
-            bean.startRowKey = bean.stopRowKey;
-            scan.setStartRow(Bytes.toBytes(bean.stopRowKey));
-        }
+        scan.setStartRow(Bytes.toBytes(bean.startRowKey));
+        scan.setStopRow(Bytes.toBytes(bean.stopRowKey));
         /**
          *  设置分页过滤器
          */
-        System.out.println("bean.recordNum+1=");
-        System.out.println(Integer.parseInt(bean.recordNum) + 1);
         PageFilter pageFilter = new PageFilter(Integer.parseInt(bean.recordNum) + 1);
         filters.addFilter(pageFilter);
         scan.setFilter(filters);
@@ -489,7 +483,7 @@ public class HBaseDao implements IHBaseDao {
          * 解析每页记录结果集
          */
 
-        long startTime = System.currentTimeMillis();
+
         ResultScanner results = table.getScanner(scan);
         List<Map<String, String>> lists = new ArrayList<Map<String, String>>();
         Map<String, String> maps = null;
@@ -510,8 +504,8 @@ public class HBaseDao implements IHBaseDao {
         bean.results.addAll(lists);
         bean.setRetMsg("success");
         lists.clear();
-        System.out.println("---------"+gson.toJson(bean));
-        return bean;
+        System.out.println("---------" + gson.toJson(bean));
+        return gson.toJson(bean);
     }
 
     public void addColumnFilter(Map<String, String> params, Properties props, FilterList filters, String family) throws NumberFormatException, UnsupportedEncodingException {
@@ -527,7 +521,7 @@ public class HBaseDao implements IHBaseDao {
                     filter = new SingleColumnValueFilter(Bytes.toBytes(family), Bytes.toBytes(qualifier), CompareFilter.CompareOp.GREATER_OR_EQUAL, Bytes.toBytes(value));
 
                 } else if ("name".equalsIgnoreCase(qualifier)) {
-                    filter = new SingleColumnValueFilter(Bytes.toBytes(family), Bytes.toBytes(qualifier), CompareFilter.CompareOp.EQUAL,  new SubstringComparator(value));
+                    filter = new SingleColumnValueFilter(Bytes.toBytes(family), Bytes.toBytes(qualifier), CompareFilter.CompareOp.EQUAL, new SubstringComparator(value));
 
                 } else {
                     filter = new SingleColumnValueFilter(Bytes.toBytes(family), Bytes.toBytes(qualifier), CompareFilter.CompareOp.EQUAL, Bytes.toBytes(value));
@@ -540,50 +534,4 @@ public class HBaseDao implements IHBaseDao {
 
     }
 
-    public static JsonObject divicePage(String tableName, String startRow,
-                                        String endRow, String lastRowKey, int num) throws IOException {
-
-        Filter filter = new PageFilter(6);//每页展示条数
-        byte[] lastRow = null;
-        HTablePool pool = new HTablePool(config, 1000);
-        HTableInterface table = pool.getTable("test_demo0");
-        Scan scan = new Scan();
-        scan.setFilter(filter);
-        lastRowKey = "111111";
-        if (lastRowKey != null) {
-            lastRow = lastRowKey.getBytes();
-            // 注意这里添加了POSTFIX操作，不然死循环了
-            //因为hbase的row是字典序列排列的，因此上一次的lastrow需要添加额外的0表示新的开始。另外startKey的那一行是包含在scan里面的
-            byte[] start = Bytes.add(lastRow, "0".getBytes());
-            scan.setStartRow(start);
-        } else {
-            scan.setStartRow(startRow.getBytes());
-        }
-
-        byte[] end = endRow.getBytes();
-        scan.setStopRow(end);
-        ResultScanner rs = table.getScanner(scan);
-        Result r = null;
-        JsonObject json = new JsonObject();
-        JsonArray array = new JsonArray();
-        while ((r = rs.next()) != null) {
-            lastRow = r.getRow();
-            System.out.println(Bytes.toString(lastRow));
-            List<Cell> cells = r.listCells();
-            JsonObject record = new JsonObject();
-            for (int i = 0; i < cells.size(); i++) {
-                String key = Bytes.toString(CellUtil.cloneQualifier(cells.get(i)));
-                String value = Bytes.toString(CellUtil.cloneValue(cells.get(i)));
-                record.addProperty(key, value);
-            }
-            array.add(record);
-        }
-        rs.close();
-
-        json.addProperty("last_row", Bytes.toString(lastRow));
-        json.add("data", array);
-        System.out.println(json.toString());
-        return json;
-
-    }
 }
