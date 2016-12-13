@@ -14,10 +14,7 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.KeyValue;
 import org.apache.hadoop.hbase.TableName;
 import org.apache.hadoop.hbase.client.*;
-import org.apache.hadoop.hbase.filter.CompareFilter;
-import org.apache.hadoop.hbase.filter.FilterList;
-import org.apache.hadoop.hbase.filter.PageFilter;
-import org.apache.hadoop.hbase.filter.SingleColumnValueFilter;
+import org.apache.hadoop.hbase.filter.*;
 
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.ipc.Server.Connection;
@@ -31,7 +28,7 @@ import com.icss.utils.FileUtil;
 import com.icss.ws.bean.InfoBean;
 import org.apache.hadoop.hbase.Cell;
 import org.apache.hadoop.hbase.CellUtil;
-import org.apache.hadoop.hbase.filter.Filter;
+
 /**
  * @author freedom.xie
  * @version 1.0 HBase数据访问对象封装,以单例模式进行创建
@@ -420,70 +417,100 @@ public class HBaseDao implements IHBaseDao {
     }
 
 
+    /**
+     * 在指定rowkey 之间，过滤出符合指定列族、列分隔符、列值，返回[列分隔符、列值]
+     *
+     * @param bean
+     * @param param      必须包含的 StartRow,StopRow,tablename,cf
+     * @param propFileNm
+     * @return
+     * @throws IOException
+     */
     public ScanBean scanData(ScanBean bean, JsonObject param, String propFileNm) throws IOException {
 
+
+        ScanBean scanBean = new ScanBean();
         Gson gson = new Gson();
         Map<String, String> params = new HashMap<String, String>();
-        params.put("age","28");
-        params.put("name","niehw");
-       // params = gson.fromJson( param, Map.class);
-     //   Properties propsss = FileUtil.readConfigFile(propFileNm);
+        params.put("age", "28");
+        params.put("age", "niehw");
         HTablePool pool = new HTablePool(config, 1000);
-        String tableName = "test_demo0";
-        String family = "ps";
-        String[] qualifiers = "age,name".split(",");
+        String tableName = jsonToString(param.get("tablename"));
+        String family = jsonToString(param.get("cf"));
+        System.out.println("tableName:family"+tableName+":"+family);
+        if (StringUtils.isEmpty(tableName) || StringUtils.isEmpty(family)) {
+            scanBean.setRetMsg("table or cf is null ");
+            return scanBean;
+        }
+        Properties props = FileUtil.readConfigFile(tableName + ".properties");
+
+        String[] qualifiers = props.getProperty("qualifiers").split(",");
         HTableInterface table = pool.getTable(tableName);
 
-        Scan scan = new Scan();
-        scan.setStartRow("111111".getBytes());
-        scan.setStartRow("111113".getBytes());
         FilterList filters = new FilterList();
-
-        //添加待查询列
+        Scan scan = new Scan();
+        /**
+         * 添加待查询列
+         */
         for (String qualifier : qualifiers) {
             scan.addColumn(Bytes.toBytes(family), Bytes.toBytes(qualifier));
         }
 
-        //添加条件过滤器
+        /**
+         * 添加条件过滤器
+         */
         addColumnFilter(params, props, filters, family);
-        //将上一次查询的结束rowkey作为本次查询的起始rowkey
-
-
-        //设置分页过滤器
-        PageFilter pageFilter = new PageFilter(8);
+        /**
+         * 将上一次查询的结束rowkey作为本次查询的起始rowkey
+         * 本过滤器对于rowkey是前闭后开
+         */
+        if(bean.stopRowKey != null && !("".equals(bean.stopRowKey))){
+            Log.debug("startRowKey=" + bean.stopRowKey);
+            bean.startRowKey = bean.stopRowKey;
+            scan.setStartRow(Bytes.toBytes(bean.stopRowKey));
+        }
+        /**
+         *  设置分页过滤器
+         */
+        System.out.println("bean.recordNum+1=");
+        System.out.println(Integer.parseInt(bean.recordNum) + 1);
+        PageFilter pageFilter = new PageFilter(Integer.parseInt(bean.recordNum) + 1);
         filters.addFilter(pageFilter);
         scan.setFilter(filters);
 
-        //设置缓存
+        /**
+         * 设置缓存
+         */
+
         scan.setCacheBlocks(true);
-        scan.setCaching(Integer.parseInt("100"));
-        //查询每页记录结果集
+        scan.setCaching(Integer.parseInt(props.getProperty("hbase.caching")));
+
+        /**
+         * 解析每页记录结果集
+         */
+
         long startTime = System.currentTimeMillis();
         ResultScanner results = table.getScanner(scan);
-        long endTime = System.currentTimeMillis();
-        Log.debug("Executor Time1: " + (endTime - startTime));
         List<Map<String, String>> lists = new ArrayList<Map<String, String>>();
         Map<String, String> maps = null;
         try {
             int count = 0;
             for (Result r : results) {
                 maps = new HashMap<String, String>();
-                String row = Bytes.toString(r.getRow());
                 for (Cell cell : r.rawCells()) {
                     maps.put(Bytes.toString(CellUtil.cloneQualifier(cell)), Bytes.toString(CellUtil.cloneValue(cell)));
                 }
                 lists.add(maps);
-                bean.stopRowKey = row;
-//				Log.debug("RESULT-DATA: " + maps.toString());
+                bean.stopRowKey = Bytes.toString(r.getRow());
             }
         } finally {
             results.close();
         }
-        endTime = System.currentTimeMillis();
-        Log.debug("Executor Time2: " + (endTime - startTime));
+
         bean.results.addAll(lists);
+        bean.setRetMsg("success");
         lists.clear();
-        System.out.println(gson.toJson(bean.results));
+        System.out.println("---------"+gson.toJson(bean));
         return bean;
     }
 
@@ -496,15 +523,22 @@ public class HBaseDao implements IHBaseDao {
             String value = condEntry.getValue();
             Log.debug("KEY:" + qualifier + " VALUE:" + value);
             if (!(value == null || value.equals(""))) {
-                filter = new SingleColumnValueFilter(Bytes.toBytes(family), Bytes.toBytes(EciConstants.HBASE_DATE_TRANDATE), CompareFilter.CompareOp.EQUAL, Bytes.toBytes(value));
-                Log.debug("FILTERKEY:" + EciConstants.HBASE_DATE_TRANDATE + " FILTERVALUE:" + value);
+                if ("age".equalsIgnoreCase(qualifier)) {
+                    filter = new SingleColumnValueFilter(Bytes.toBytes(family), Bytes.toBytes(qualifier), CompareFilter.CompareOp.GREATER_OR_EQUAL, Bytes.toBytes(value));
+
+                } else if ("name".equalsIgnoreCase(qualifier)) {
+                    filter = new SingleColumnValueFilter(Bytes.toBytes(family), Bytes.toBytes(qualifier), CompareFilter.CompareOp.EQUAL,  new SubstringComparator(value));
+
+                } else {
+                    filter = new SingleColumnValueFilter(Bytes.toBytes(family), Bytes.toBytes(qualifier), CompareFilter.CompareOp.EQUAL, Bytes.toBytes(value));
+
+                }
+                filter.setFilterIfMissing(false);
+                filters.addFilter(filter);
             }
-            filter.setFilterIfMissing(false);
-            filters.addFilter(filter);
         }
 
     }
-
 
     public static JsonObject divicePage(String tableName, String startRow,
                                         String endRow, String lastRowKey, int num) throws IOException {
@@ -515,14 +549,14 @@ public class HBaseDao implements IHBaseDao {
         HTableInterface table = pool.getTable("test_demo0");
         Scan scan = new Scan();
         scan.setFilter(filter);
-        lastRowKey="111111";
+        lastRowKey = "111111";
         if (lastRowKey != null) {
             lastRow = lastRowKey.getBytes();
             // 注意这里添加了POSTFIX操作，不然死循环了
             //因为hbase的row是字典序列排列的，因此上一次的lastrow需要添加额外的0表示新的开始。另外startKey的那一行是包含在scan里面的
             byte[] start = Bytes.add(lastRow, "0".getBytes());
             scan.setStartRow(start);
-        }else{
+        } else {
             scan.setStartRow(startRow.getBytes());
         }
 
@@ -537,7 +571,7 @@ public class HBaseDao implements IHBaseDao {
             System.out.println(Bytes.toString(lastRow));
             List<Cell> cells = r.listCells();
             JsonObject record = new JsonObject();
-            for(int i=0;i<cells.size();i++){
+            for (int i = 0; i < cells.size(); i++) {
                 String key = Bytes.toString(CellUtil.cloneQualifier(cells.get(i)));
                 String value = Bytes.toString(CellUtil.cloneValue(cells.get(i)));
                 record.addProperty(key, value);
