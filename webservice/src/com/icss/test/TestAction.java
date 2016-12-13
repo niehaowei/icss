@@ -3,18 +3,12 @@ package com.icss.test;
 import com.google.gson.Gson;
 import com.google.gson.JsonObject;
 import com.icss.action.ActionExecutorImpl;
-import com.icss.dao.hbase.HBaseDao;
 import com.icss.dao.hbase.ScanBean;
 import com.icss.dao.hive.HiveDao;
-import com.icss.dao.hive.HiveUtil;
 import com.icss.ws.bean.InfoBean;
 import junit.framework.TestCase;
 import org.junit.Test;
 
-import java.io.IOException;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.sql.Statement;
 import java.util.HashMap;
 
 /**
@@ -69,7 +63,12 @@ public class TestAction extends TestCase {
             jsonObject.addProperty("cf","ps");
             ScanBean scanBean = new ScanBean();
             scanBean.setRecordNum("2");
-            com.icss.dao.hbase.HBaseDao.getInstance().scanData(scanBean,jsonObject, "");
+            scanBean.setStartRowKey("111112");
+            scanBean.setStopRowKey("9999999");
+            scanBean.setRecordNum("1");
+            Gson gson = new Gson();
+            System.out.println(gson.toJson(scanBean));
+            com.icss.dao.hbase.HBaseDao.getInstance().scanData(gson.toJson(scanBean), jsonObject, "");
         } catch (Exception e) {
             e.printStackTrace();
         }
