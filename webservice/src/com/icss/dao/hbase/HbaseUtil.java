@@ -48,7 +48,7 @@ public class HbaseUtil {
 	}
 
 
-public Connection getConnection(Configuration config){
+public static Connection getConnection(Configuration config){
 	try {
 		connection = ConnectionFactory.createConnection(config);
 	} catch (IOException e) {
