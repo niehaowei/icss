@@ -7,6 +7,7 @@ import com.icss.utils.FileUtil;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HBaseConfiguration;
 
+import org.apache.hadoop.ipc.Server;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.apache.hadoop.hbase.client.Connection;
@@ -48,7 +49,16 @@ public class HbaseUtil {
 	}
 
 
-public static Connection getConnection(Configuration config){
+	public static Connection getConnection() {
+		try {
+			connection = ConnectionFactory.createConnection(config);
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		return connection;
+	}
+/*public static Connection getConnection(Configuration config){
 	try {
 		connection = ConnectionFactory.createConnection(config);
 	} catch (IOException e) {
@@ -56,5 +66,8 @@ public static Connection getConnection(Configuration config){
 		e.printStackTrace();
 	}
 	return connection;
-}
+}*/
+
+
+
 }

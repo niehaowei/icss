@@ -11,11 +11,11 @@ import com.google.gson.JsonArray;
 import com.icss.utils.EciConstants;
 import org.apache.commons.lang.StringUtils;
 import org.apache.hadoop.conf.Configuration;
-import org.apache.hadoop.hbase.KeyValue;
-import org.apache.hadoop.hbase.TableName;
+import org.apache.hadoop.hbase.*;
 import org.apache.hadoop.hbase.client.*;
 import org.apache.hadoop.hbase.filter.*;
 
+import org.apache.hadoop.hbase.io.compress.Compression;
 import org.apache.hadoop.hbase.util.Bytes;
 import org.apache.hadoop.ipc.Server.Connection;
 import org.slf4j.Logger;
@@ -26,12 +26,10 @@ import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.icss.utils.FileUtil;
 import com.icss.ws.bean.InfoBean;
-import org.apache.hadoop.hbase.Cell;
-import org.apache.hadoop.hbase.CellUtil;
 
 /**
- * @author freedom.xie
- * @version 1.0 HBase数据访问对象封装,以单例模式进行创建
+ * @author niehw
+ * @version 0.98 HBase数据访问对象封装,以单例模式进行创建
  */
 public class HBaseDao implements IHBaseDao {
     private static Logger Log = LoggerFactory.getLogger(HBaseDao.class);
@@ -44,22 +42,9 @@ public class HBaseDao implements IHBaseDao {
         this.config = HbaseUtil.getConfig();
     }
 
-    public static HBaseDao getInstance() {
+    public static  HBaseDao getInstance() {
         return instance;
     }
-
-
-    /**
-     * 根据起始rowkey和查询条件，在Hbase表中进行分页查询
-     * @author swot.liu
-     * @param bean 查询结果bean
-     * @param recordNum 每页记录数
-     * @param params 条件参数
-     * @param tableParam 表参数
-     * @return
-     * @throws java.io.IOException
-     */
-
 
     /**
      * 获取ROWKEY的名称与长度映射
@@ -143,7 +128,58 @@ public class HBaseDao implements IHBaseDao {
         }
         return splits;
     }
+    public void createTable(boolean rebuild, String tableName, String splitSize, String family[], String compressionType, String startKey, String stopKey, String regionNum, String rowKeyLen) {
+        Log.debug("create table:" + tableName);
+        try {
+            HBaseAdmin hBaseAdmin = new HBaseAdmin(config);
+            if (hBaseAdmin.tableExists(tableName)) {
+                if (rebuild) {
+                    hBaseAdmin.disableTable(tableName);
+                    hBaseAdmin.deleteTable(tableName);
+                    Log.debug(tableName + "will be rebuild ...");
+                } else {
+                    Log.debug(tableName + " exists ignore...");
+                    return;
+                }
+            }
 
+            HTableDescriptor tableDescriptor = new HTableDescriptor(tableName);
+            // 设置region大小
+            long maxFileSize = Long.parseLong(splitSize);
+            tableDescriptor.setMaxFileSize(maxFileSize * 1000 * 1000);
+
+            // 创建列族
+            HColumnDescriptor cf = null;
+            for (int i = 0; family.length > i; i++) {
+                cf = new HColumnDescriptor(family[i].toLowerCase());
+                switch (compressionType) {
+                    case "gzip":
+                        cf.setCompressionType(Compression.Algorithm.GZ);
+                        break;
+                    case "lzo":
+                        cf.setCompressionType(Compression.Algorithm.LZO);
+                        break;
+                    case "snappy":
+                        cf.setCompressionType(Compression.Algorithm.SNAPPY);
+                        break;
+                    default:break;
+
+                }
+                tableDescriptor.addFamily(cf);
+            }
+            // 创建表,并预创建Region
+            // 创建表,并预创建Region
+            hBaseAdmin.createTable(
+                    tableDescriptor,
+                    getHexSplits(startKey, stopKey, Integer.parseInt(regionNum)));
+//			hBaseAdmin.createTable(
+//					tableDescriptor,
+//					getSplits(startKey, stopKey, Integer.parseInt(regionNum), rowKeyLen));
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        Log.debug("create table end...");
+    }
     public void batchCrtTable() {
         String serviceCode[] = props.getProperty("hbase.service.code").split("\\,");
         String sCode = null;
@@ -168,7 +204,7 @@ public class HBaseDao implements IHBaseDao {
             compressionType = propers.getProperty("hbase.table.compressionType");
             regionNum = propers.getProperty("hbase.table.regionNum");
             rowKeyLen = propers.getProperty("hbase.table.rowKeyLen");
-            //	this.createTable(rebuild, tableName, splitSize, family, compressionType, prestartkey, preendkey, regionNum, rowKeyLen);
+            this.createTable(rebuild, tableName, splitSize, family, compressionType, prestartkey, preendkey, regionNum, rowKeyLen);
         }
     }
 
@@ -190,41 +226,6 @@ public class HBaseDao implements IHBaseDao {
         }
     }
 
-
-    public static String queryByCondition1(String tableName) {
-        InfoBean infoBean = new InfoBean();
-        HTablePool pool = new HTablePool(config, 1000);
-        HTableInterface table = pool.getTable(tableName);
-        List<String> resultList = new ArrayList<String>();
-        HashMap<String, HashMap<String, Object>> result = new HashMap<String, HashMap<String, Object>>();
-        try {
-            Get scan = new Get("111111".getBytes());// 根据rowkey查询
-            Result r = table.get(scan);
-
-
-            StringBuffer stringBuffer = new StringBuffer();
-            System.out.println("获得到rowkey:" + new String(r.getRow()));
-
-            HashMap<String, Object> hashMap = new HashMap<String, Object>();
-
-            for (KeyValue keyValue : r.raw()) {
-
-                System.out.println("列族：" + new String(keyValue.getFamily())
-                        + "====值:" + new String(keyValue.getValue()));
-                stringBuffer.append(new String(keyValue.getFamily()) + ":" + new String(keyValue.getValue()));
-                hashMap.put(new String(keyValue.getQualifier()), new String(keyValue.getValue()));
-                resultList.add(stringBuffer.toString());
-                result.put(new String(keyValue.getFamily()), hashMap);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-            return "";
-        }
-        Gson gson = new Gson();
-
-        return gson.toJson(result);
-    }
-
     public static String jsonToString(JsonElement jsonelement) {
         if (jsonelement == null) {
             return "";
@@ -240,129 +241,113 @@ public class HBaseDao implements IHBaseDao {
         return str;
     }
 
-    public String queryByRowKey(String databases, String actionType, JsonObject param, int[] pageParam) {
-        System.out.println("rowkey:tablename=" + String.valueOf(param.get("rowkey") + ":" + String.valueOf(param.get("tablename"))));
-        InfoBean infoBean = new InfoBean();
-        HTablePool pool = new HTablePool(config, 1000);
-        String tablename = jsonToString(param.get("tablename"));
-        String rowkey = jsonToString(param.get("rowkey"));
-        System.out.println("tablename=" + tablename.length());
-        System.out.println("rowkey=" + rowkey.length());
-        HTableInterface table = pool.getTable(tablename);
-        Get scan = new Get(rowkey.getBytes());// 根据rowkey查询
-        List<String> resultList = new ArrayList<String>();
 
-        HashMap<String, HashMap<String, Object>> result = new HashMap<String, HashMap<String, Object>>();
-        try {
-
-
-            Result r = table.get(scan);
-
-
-            StringBuffer stringBuffer = new StringBuffer();
-            System.out.println("获得到rowkey:" + new String(r.getRow()));
-
-            HashMap<String, Object> hashMap = new HashMap<String, Object>();
-
-            for (KeyValue keyValue : r.raw()) {
-
-                System.out.println("列族：" + new String(keyValue.getFamily())
-                        + "====值:" + new String(keyValue.getValue()));
-                stringBuffer.append(new String(keyValue.getFamily()) + ":" + new String(keyValue.getValue()));
-                hashMap.put(new String(keyValue.getQualifier()), new String(keyValue.getValue()));
-                long timestamp = keyValue.getTimestamp();
-                hashMap.put("timestamp", String.valueOf(timestamp));
-                hashMap.put("rowkey", new String(keyValue.getRow()));
-
-                resultList.add(stringBuffer.toString());
-                result.put(new String(keyValue.getFamily()), hashMap);
-            }
-        } catch (IOException e) {
-            e.printStackTrace();
-            return "";
-        }
-        Gson gson = new Gson();
-
-        return gson.toJson(result);
-    }
-
-
-    public static void printResult(Result result) {
-
-        //行键
-
-        byte[] rowKey = result.getRow();
-        //返回的是四元组Map<family,   Map<qualifier,    Map<timestamp,    value>>>
-        NavigableMap<byte[], NavigableMap<byte[], NavigableMap<Long, byte[]>>> map = result.getMap();
-
-        for (Entry<byte[], NavigableMap<byte[], NavigableMap<Long, byte[]>>> entry : map.entrySet()) {
-            //第一个是列族
-            byte[] familyName = entry.getKey();
-            NavigableMap<byte[], NavigableMap<Long, byte[]>> value2 = entry.getValue();
-            for (Entry<byte[], NavigableMap<Long, byte[]>> entry2 : value2.entrySet()) {
-                //第二个是列限定符
-                byte[] qualifierName = entry2.getKey();
-                NavigableMap<Long, byte[]> value3 = entry2.getValue();
-                for (Entry<Long, byte[]> entry3 : value3.entrySet()) {
-                    //第三个是时间戳
-                    Long timestamp = entry3.getKey();
-                    //真正的值
-                    byte[] realValue = entry3.getValue();
-
-                    String s = String.format("行键%s 列族%s:%s 值%s 时间戳%d", Bytes.toString(rowKey), Bytes.toString(familyName), Bytes.toString(qualifierName), Bytes.toString(realValue), timestamp);
-                    System.out.println(s);
-
-
-                }
-            }
-        }
-
-
-    }
-
-
-    /**
-     * 开发人员:nie_hw
-     * 创建日期:2016年12月9日
-     * 方法(重写)说明:
-     * 方法修改记录:
-     * @param str
-     * @return
-     */
-
-
-    /**
-     * 开发人员:nie_hw
-     * 创建日期:2016年12月9日
-     * 方法(重写)说明:
-     * 方法修改记录:
-     *
-     * @param databases
-     * @param actionType
-     * @param param
-     * @return
-     */
     @Override
     public String queryByValue(String databases, String actionType, JsonObject param) {
         // TODO Auto-generated method stub
         return null;
     }
 
+
+
     /**
-     * 开发人员:nie_hw
-     * 创建日期:2016年12月9日
-     * 方法(重写)说明:
-     * 方法修改记录:
+     * 根据起始rowkey和查询条件，在Hbase表中进行分页查询
      *
-     * @param databases
-     * @param actionType
-     * @param param
+     * @param
+     * @param param      必须包含的
+     * @param propFileNm
      * @return
+     * @throws IOException 返回值{"results":[{"age":"28"},{"age":"29"}],"recordNum":"1","startRowKey":"111112","stopRowKey":"111116","retMsg":"success"}
      */
     @Override
-    public String ScanTable(String databases, String actionType, JsonObject param) {
-        // TODO Auto-generated method stub
-        return null;
+    public String scanTable(String strbean, String propFileNm,JsonObject param) {
+        ScanBean bean = new ScanBean();
+        Gson gson = new Gson();
+        bean = gson.fromJson(strbean, ScanBean.class);
+        String tablename = jsonToString(param.get("tablename"));
+        String cf = jsonToString(param.get("cf"));
+        ScanBean scanBean = new ScanBean();
+        Map<String, String> params = new HashMap<String, String>();
+        params.put("age", "28");
+        params.put("name", "niehw");
+        HTablePool pool = new HTablePool(config, 1000);
+        if (StringUtils.isEmpty(tablename) || StringUtils.isEmpty(cf)) {
+            scanBean.setRetMsg("table or cf is null ");
+            return gson.toJson(scanBean);
+        }
+        Properties props = FileUtil.readConfigFile(tablename + ".properties");
+        String[] qualifiers = props.getProperty("qualifiers").split(",");
+        HTableInterface table = pool.getTable(tablename);
+
+        FilterList filters = new FilterList();
+        Scan scan = new Scan();
+        /**
+         * 添加待查询列
+         */
+        for (String qualifier : qualifiers) {
+            scan.addColumn(Bytes.toBytes(cf), Bytes.toBytes(qualifier));
+        }
+
+        /**
+         * 添加条件过滤器
+         */
+        try {
+            addColumnFilter(params, props, filters, cf);
+        } catch (UnsupportedEncodingException e) {
+
+        }
+        /**
+         * 将上一次查询的结束rowkey作为本次查询的起始rowkey
+         * 本过滤器对于rowkey范围是前闭后开
+         */
+        scan.setStartRow(Bytes.toBytes(bean.startRowKey));
+        scan.setStopRow(Bytes.toBytes(bean.stopRowKey));
+        /**
+         *  设置分页过滤器
+         */
+        PageFilter pageFilter = new PageFilter(Integer.parseInt(bean.recordNum) + 1);
+        filters.addFilter(pageFilter);
+        scan.setFilter(filters);
+
+        /**
+         * 设置缓存
+         */
+
+        scan.setCacheBlocks(true);
+        scan.setCaching(Integer.parseInt(props.getProperty("hbase.caching")));
+
+        /**
+         * 解析每页记录结果集
+         */
+
+
+        ResultScanner results = null;
+        try {
+            results = table.getScanner(scan);
+        } catch (IOException e) {
+
+        }
+        List<Map<String, String>> lists = new ArrayList<Map<String, String>>();
+        Map<String, String> maps = null;
+        try {
+            int count = 0;
+            for (Result r : results) {
+                maps = new HashMap<String, String>();
+                for (Cell cell : r.rawCells()) {
+                    maps.put(Bytes.toString(CellUtil.cloneQualifier(cell)), Bytes.toString(CellUtil.cloneValue(cell)));
+                }
+                lists.add(maps);
+                bean.stopRowKey = Bytes.toString(r.getRow());
+            }
+        } finally {
+            results.close();
+        }
+
+        bean.results.addAll(lists);
+        bean.setRetMsg("success");
+        lists.clear();
+        System.out.println("---------" + gson.toJson(bean));
+        return gson.toJson(bean);
     }
 
     /**
@@ -414,98 +399,6 @@ public class HBaseDao implements IHBaseDao {
 
         return gson.toJson(result);
 
-    }
-
-
-    /**
-     * 根据起始rowkey和查询条件，在Hbase表中进行分页查询
-     *
-     * @param
-     * @param param      必须包含的
-     * @param propFileNm
-     * @return
-     * @throws IOException 返回值{"results":[{"age":"28"},{"age":"29"}],"recordNum":"1","startRowKey":"111112","stopRowKey":"111116","retMsg":"success"}
-     */
-    public String scanData(String strbean, JsonObject param, String propFileNm) throws IOException {
-
-        ScanBean bean = new ScanBean();
-        Gson gson = new Gson();
-        bean = gson.fromJson(strbean, ScanBean.class);
-        String tablename = jsonToString(param.get("tablename"));
-        String cf = jsonToString(param.get("cf"));
-        ScanBean scanBean = new ScanBean();
-        Map<String, String> params = new HashMap<String, String>();
-        params.put("age", "28");
-        params.put("name", "niehw");
-        HTablePool pool = new HTablePool(config, 1000);
-        if (StringUtils.isEmpty(tablename) || StringUtils.isEmpty(cf)) {
-            scanBean.setRetMsg("table or cf is null ");
-            return gson.toJson(scanBean);
-        }
-        Properties props = FileUtil.readConfigFile(tablename + ".properties");
-        String[] qualifiers = props.getProperty("qualifiers").split(",");
-        HTableInterface table = pool.getTable(tablename);
-
-        FilterList filters = new FilterList();
-        Scan scan = new Scan();
-        /**
-         * 添加待查询列
-         */
-        for (String qualifier : qualifiers) {
-            scan.addColumn(Bytes.toBytes(cf), Bytes.toBytes(qualifier));
-        }
-
-        /**
-         * 添加条件过滤器
-         */
-        addColumnFilter(params, props, filters, cf);
-        /**
-         * 将上一次查询的结束rowkey作为本次查询的起始rowkey
-         * 本过滤器对于rowkey范围是前闭后开
-         */
-        scan.setStartRow(Bytes.toBytes(bean.startRowKey));
-        scan.setStopRow(Bytes.toBytes(bean.stopRowKey));
-        /**
-         *  设置分页过滤器
-         */
-        PageFilter pageFilter = new PageFilter(Integer.parseInt(bean.recordNum) + 1);
-        filters.addFilter(pageFilter);
-        scan.setFilter(filters);
-
-        /**
-         * 设置缓存
-         */
-
-        scan.setCacheBlocks(true);
-        scan.setCaching(Integer.parseInt(props.getProperty("hbase.caching")));
-
-        /**
-         * 解析每页记录结果集
-         */
-
-
-        ResultScanner results = table.getScanner(scan);
-        List<Map<String, String>> lists = new ArrayList<Map<String, String>>();
-        Map<String, String> maps = null;
-        try {
-            int count = 0;
-            for (Result r : results) {
-                maps = new HashMap<String, String>();
-                for (Cell cell : r.rawCells()) {
-                    maps.put(Bytes.toString(CellUtil.cloneQualifier(cell)), Bytes.toString(CellUtil.cloneValue(cell)));
-                }
-                lists.add(maps);
-                bean.stopRowKey = Bytes.toString(r.getRow());
-            }
-        } finally {
-            results.close();
-        }
-
-        bean.results.addAll(lists);
-        bean.setRetMsg("success");
-        lists.clear();
-        System.out.println("---------" + gson.toJson(bean));
-        return gson.toJson(bean);
     }
 
     public void addColumnFilter(Map<String, String> params, Properties props, FilterList filters, String family) throws NumberFormatException, UnsupportedEncodingException {

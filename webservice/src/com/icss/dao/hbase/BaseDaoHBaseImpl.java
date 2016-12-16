@@ -19,7 +19,8 @@ public  class BaseDaoHBaseImpl {
 	}
 	public BaseDaoHBaseImpl(){
 		hbasedao=HBaseDao.getInstance();
-		hbasedao2= new HBaseDao2();
+
+
 	}
 	
 }

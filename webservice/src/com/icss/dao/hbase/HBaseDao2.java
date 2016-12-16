@@ -43,6 +43,11 @@ public class HBaseDao2 implements IHBaseDao{
 		return null;
 	}
 
+	@Override
+	public String scanTable(String strbean, String actionType, JsonObject param) {
+		return null;
+	}
+
 	/**
 	 * 开发人员:nie_hw
 	 * 创建日期:2016年12月9日
@@ -53,11 +58,7 @@ public class HBaseDao2 implements IHBaseDao{
 	 * @param param
 	 * @return
 	 */
-	@Override
-	public String ScanTable(String databases, String actionType, JsonObject param) {
-		// TODO Auto-generated method stub
-		return null;
-	}
+
 	
 	public String queryVerify(String databases, String actionType, JsonObject param){
 		return "";

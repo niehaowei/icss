@@ -13,6 +13,6 @@ public interface IHBaseDao {
 
 	   String  queryByRowKey(String databases, String actionType, JsonObject param);
 	   String  queryByValue(String databases, String actionType, JsonObject param);
-	   String  ScanTable(String databases, String actionType, JsonObject param);
+	   String  scanTable(String strbean, String actionType, JsonObject param);
 
 }
